@@ -1,0 +1,311 @@
+---
+# Copyright 2018 (c) Ansible Project
+# Copyright 2018 (c) Widdix GmbH
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'cloudonaut.io ECS cluster template'
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+    - Label:
+        default: 'Parent Stacks'
+      Parameters:
+      - ParentVPCStack
+      - ParentSSHBastionStack
+      - ParentAuthProxyStack
+      - ParentAlertStack
+    - Label:
+        default: 'EC2 Parameters'
+      Parameters:
+      - KeyName
+      # TODO - SystemsManagerAccess
+    - Label:
+        default: 'Load Balancer Parameters'
+      Parameters:
+      - LoadBalancerScheme
+      - LoadBalancerCertificateArn
+    - Label:
+        default: 'Cluster Parameters'
+      Parameters:
+      - SubnetsReach
+      - InstanceType
+      - LogsRetentionInDays
+      - MaxSize
+      - MinSize
+      - DesiredCapacity
+      - DrainingTimeoutInSeconds
+    - Label:
+        default: 'Cluster Scaling Parameters'
+      Parameters:
+      - ContainerMaxCPU
+      - ContainerMaxMemory
+      - ContainerShortageThreshold
+      - ContainerExcessThreshold
+Parameters:
+  ECSAMI:
+    Description: AMI ID
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ecs/optimized-ami/amazon-linux/recommended/image_id
+  ParentVPCStack:
+    Description: 'Stack name of parent VPC stack based on vpc/vpc-*azs.yaml template.'
+    Type: String
+  ParentSSHBastionStack:
+    Description: 'Optional but recommended stack name of parent SSH bastion host/instance stack based on vpc/vpc-*-bastion.yaml template.'
+    Type: String
+    Default: ''
+  ParentAuthProxyStack:
+    Description: 'Optional stack name of parent auth proxy stack based on security/auth-proxy-*.yaml template.'
+    Type: String
+    Default: ''
+  ParentAlertStack:
+    Description: 'Optional but recommended stack name of parent alert stack based on operations/alert.yaml template.'
+    Type: String
+    Default: ''
+  KeyName:
+    Description: 'Optional key pair of the ec2-user to establish a SSH connection to the EC2 instances of the ECS cluster.'
+    Type: String
+    Default: ''
+  SubnetsReach:
+    Description: 'Should the cluster have direct access to the Internet or do you prefer private subnets with NAT?'
+    Type: String
+    Default: Public
+    AllowedValues:
+    - Public
+    - Private
+  LoadBalancerScheme:
+    Description: 'Indicates whether the load balancer in front of the ECS cluster is internet-facing or internal.'
+    Type: String
+    Default: 'internet-facing'
+    AllowedValues:
+    - 'internet-facing'
+    - internal
+  LoadBalancerCertificateArn:
+    Description: 'Optional Amazon Resource Name (ARN) of the certificate to associate with the load balancer.'
+    Type: String
+    Default: ''
+  InstanceType:
+    Description: 'The instance type of the EC2 instances of the ECS cluster.'
+    Type: String
+    Default: 't2.micro'
+  SpotBidPrice:
+    Description: If this is filled in, use spot instances to save that dollar
+    Type: Number
+    Default: -1
+  LogsRetentionInDays:
+    Description: 'Specifies the number of days you want to retain log events in the specified log group.'
+    Type: Number
+    Default: 14
+    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
+  MaxSize:
+    Description: 'The maximum size of the Auto Scaling group.'
+    Type: Number
+    Default: 4
+    ConstraintDescription: 'Must be >= 1'
+    MinValue: 1
+  MinSize:
+    Description: 'The minimum size of the Auto Scaling group.'
+    Type: Number
+    Default: 2
+    ConstraintDescription: 'Must be >= 1'
+    MinValue: 0
+  DesiredCapacity:
+    Description: 'The desired start size of the Auto Scaling group.'
+    Type: Number
+    Default: 2
+    ConstraintDescription: 'Must be >= 1'
+    MinValue: 0
+  DrainingTimeoutInSeconds:
+    Description: 'Maximum time in seconds an EC2 instance waits when terminating until all containers are moved to another EC2 instance (draining).'
+    Type: Number
+    Default: 60
+    ConstraintDescription: 'Must be in the range [60-7200]'
+    MinValue: 60
+    MaxValue: 7200
+  ContainerMaxCPU:
+    Description: 'The maximum number of cpu reservation per container that you plan to run on this cluster. A container instance has 1,024 CPU units for every CPU core.'
+    Type: Number
+    Default: 128
+  ContainerMaxMemory:
+    Description: 'The maximum number of memory reservation (in MB)  per container that you plan to run on this cluster.'
+    Type: Number
+    Default: 128
+  ContainerShortageThreshold:
+    Description: 'Scale up if free cluster capacity <= containers (based on ContainerMaxCPU and ContainerMaxMemory settings)'
+    Type: Number
+    Default: 2
+    MinValue: 0
+    ConstraintDescription: 'Must be >= 0'
+  ContainerExcessThreshold:
+    Description: 'Scale down if free cluster capacity >= containers (based on ContainerMaxCPU and ContainerMaxMemory settings)'
+    Type: Number
+    Default: 10
+    MinValue: 2
+    ConstraintDescription: 'Must be >= 2'
+Conditions:
+  UseSpotInstances: !Not [!Equals [!Ref SpotBidPrice, -1]]
+  HasKeyName: !Not [!Equals [!Ref KeyName, '']]
+  HasAuthProxySecurityGroup: !Not [!Equals [!Ref ParentAuthProxyStack, '']]
+  HasNotAuthProxySecurityGroup: !Equals [!Ref ParentAuthProxyStack, '']
+  HasLoadBalancerCertificateArn: !Not [!Equals [!Ref LoadBalancerCertificateArn, '']]
+  HasAuthProxySecurityGroupAndLoadBalancerCertificateArn: !And [!Condition HasAuthProxySecurityGroup, !Condition HasLoadBalancerCertificateArn]
+  HasNotAuthProxySecurityGroupAndLoadBalancerCertificateArn: !And [!Condition HasNotAuthProxySecurityGroup, !Condition HasLoadBalancerCertificateArn]
+Resources:
+  Cluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties: {}
+  LogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: !Ref LogsRetentionInDays
+  InstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: '/'
+      Roles:
+      - !Ref Role
+  Role:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: 'ec2.amazonaws.com'
+          Action: 'sts:AssumeRole'
+      Path: '/'
+      Policies:
+      - PolicyName: ecs
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'ecs:DiscoverPollEndpoint'
+            Resource: '*'
+      - PolicyName: ecs-cluster
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'ecs:DeregisterContainerInstance'
+            - 'ecs:RegisterContainerInstance'
+            - 'ecs:SubmitContainerStateChange'
+            - 'ecs:SubmitTaskStateChange'
+            - 'ecs:ListContainerInstances'
+            Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${Cluster}'
+      - PolicyName: ecs-cluster-instance
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'ecs:Poll'
+            - 'ecs:StartTelemetrySession'
+            - 'ecs:UpdateContainerInstancesState'
+            - 'ecs:ListTasks'
+            - 'ecs:DescribeContainerInstances'
+            Resource: !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:container-instance/*'
+            Condition:
+              'StringEquals':
+                'ecs:cluster':
+                  !Sub 'arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:cluster/${Cluster}'
+      - PolicyName: ecr
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'ecr:GetAuthorizationToken'
+            - 'ecr:BatchCheckLayerAvailability'
+            - 'ecr:GetDownloadUrlForLayer'
+            - 'ecr:BatchGetImage'
+            Resource: '*'
+      - PolicyName: logs
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            - 'logs:DescribeLogStreams'
+            Resource: 'arn:aws:logs:*:*:*'
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'ecs-cluster'
+      VpcId: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+      SecurityGroupIngress:
+      - CidrIp: '0.0.0.0/0' #TODO: narrow this down
+        FromPort: 0
+        ToPort: 65535
+        IpProtocol: tcp
+      - CidrIp: '0.0.0.0/0'
+        FromPort: 22
+        ToPort: 22
+        IpProtocol: tcp
+  LaunchConfiguration:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
+    Properties:
+      ImageId: !Ref ECSAMI
+      IamInstanceProfile: !Ref InstanceProfile
+      InstanceType: !Ref InstanceType
+      SecurityGroups:
+      - !Ref SecurityGroup
+      KeyName: !If [HasKeyName, !Ref KeyName, !Ref 'AWS::NoValue']
+      SpotPrice: !If [UseSpotInstances, !Ref SpotBidPrice, !Ref 'AWS::NoValue']
+      UserData:
+        'Fn::Base64': !Sub |
+          #!/bin/bash -ex
+          echo "ECS_CLUSTER=${Cluster}" >> /etc/ecs/ecs.config
+  AutoScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
+    Properties:
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      MinSize: !Ref MinSize
+      MaxSize: !Ref MaxSize
+      DesiredCapacity: !Ref DesiredCapacity
+      HealthCheckGracePeriod: 300
+      HealthCheckType: ELB
+      NotificationConfigurations: []
+      VPCZoneIdentifier: !Split [',', {'Fn::ImportValue': !Sub '${ParentVPCStack}-Subnets${SubnetsReach}'}]
+      Tags:
+      - Key: Name
+        Value: 'ecs-cluster'
+        PropagateAtLaunch: true
+Outputs:
+  TemplateID:
+    Description: 'cloudonaut.io template id.'
+    Value: 'ecs/cluster'
+  StackName:
+    Description: 'Stack name.'
+    Value: !Sub '${AWS::StackName}'
+  Cluster:
+    Description: 'ECS cluster.'
+    Value: !Ref Cluster
+    Export:
+      Name: !Sub '${AWS::StackName}-Cluster'
+  VPC:
+    Description: 'VPC of ECS cluster.'
+    Value: {'Fn::ImportValue': !Sub '${ParentVPCStack}-VPC'}
+    Export:
+      Name: !Sub '${AWS::StackName}-VPC'
+  SecurityGroup:
+    Description: 'Security Group of ECS cluster.'
+    Value: !Ref SecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroup'

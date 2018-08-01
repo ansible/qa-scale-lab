@@ -1,0 +1,72 @@
+---
+- hosts: localhost
+  gather_facts: false
+  connection: local
+  vars_files:
+  - vars.yml
+  tasks:
+  - cloudformation:
+      template: ./cfn/vpc-2azs.yaml
+      stack_name: scale-test-vpc
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      template_parameters:
+        ClassB: 99
+  - ecs_ecr:
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      name: test-images
+    register: ecr
+  - cloudformation:
+      template: ./cfn/ecs-static-size-cluster.yaml
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      stack_name: static-ecs-cluster
+      template_parameters:
+        ParentVPCStack: scale-test-vpc
+        SubnetsReach: Public
+        InstanceType: c5.4xlarge
+        SpotBidPrice: 0.20
+        MaxSize: 8
+        DesiredCapacity: 3
+        MinSize: 0
+        KeyName: '{{ key_name }}'
+    register: stack
+  - name: please upload the SSH host image to container registry at {{ ecr.repositoryUri }}
+    pause: minutes=5
+  - ecs_taskdefinition_facts:
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      task_definition: ssh-ansible-targets
+    register: def
+  - ecs_taskdefinition:
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      network_mode: bridge
+      family: ssh-ansible-targets
+      state: present
+      containers:
+      - name: ssh-target
+        image: '{{ ecr.repository.repositoryUri }}:6'
+        memoryReservation: 40
+        portMappings:
+          - containerPort: 22
+            hostPort: 0
+            protocol: tcp
+    register: td
+    when: not def.status
+  - ecs_service:
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      state: present
+      cluster: '{{ stack.stack_outputs.Cluster }}'
+      name: ssh-targets-{{ item }}
+      deployment_configuration:
+        maximum_percent: 150
+        minimum_healthy_percent: 10
+      desired_count: 500
+      task_definition: ssh-ansible-targets
+      placement_strategy:
+        - field: instanceId
+          type: spread
+    loop: [1, 2, 3, 4]

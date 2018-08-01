@@ -1,0 +1,21 @@
+---
+- hosts: localhost
+  gather_facts: false
+  connection: local
+  vars_files:
+  - vars.yml
+  tasks:
+  - cloudformation:
+      template: ./cfn/ecs-static-size-cluster.yaml
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      stack_name: static-ecs-cluster
+      template_parameters:
+        ParentVPCStack: scale-test-vpc
+        SubnetsReach: Public
+        InstanceType: c5.4xlarge
+        SpotBidPrice: 0.20
+        MaxSize: 0
+        DesiredCapacity: 0
+        MinSize: 0
+        KeyName: '{{ key_name }}'
