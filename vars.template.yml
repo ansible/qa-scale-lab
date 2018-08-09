@@ -1,2 +1,8 @@
 aws_profile: YourProfileHere
 key_name: your-key
+repo_url: 'quay.io/ryansb/ansible-scale-test'
+desired_targets:
+  # how many centos SSH hosts you want
+  cent_ssh: 2000
+  # how many Cisco IOS simulator hosts you want
+  cisco_ios: 0

@@ -230,6 +230,16 @@ Resources:
       RuleAction: allow
       Egress: true
       CidrBlock: '0.0.0.0/0'
+  SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: 'basic-allow-all'
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - CidrIp: '0.0.0.0/0' #TODO: narrow this down
+        FromPort: 0
+        ToPort: 65535
+        IpProtocol: tcp
 Outputs:
   TemplateID:
     Description: 'cloudonaut.io template id.'

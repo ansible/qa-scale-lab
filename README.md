@@ -1,7 +1,12 @@
 # QA Scale Lab
 
+[![Docker images at quay.io](https://quay.io/repository/ryansb/ansible-scale-test/status "Docker Repository on Quay")](https://quay.io/repository/ryansb/ansible-scale-test)
+
 Creates an ECS cluster and an ASG of container hosts to SSH into for scale
-testing Ansible playbooks and discovering performance issues.
+testing Ansible playbooks and discovering performance issues. The
+`list_clints.py` queries ECS and creates a static inventory file listing all
+the CLINTs (Container Lightweight Inventory Numerous Targets) with the task
+UUID as the inventory hostname.
 
 # Usage
 

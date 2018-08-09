@@ -40,7 +40,6 @@ Metadata:
       Parameters:
       - SubnetsReach
       - InstanceType
-      - LogsRetentionInDays
       - MaxSize
       - MinSize
       - DesiredCapacity
@@ -102,11 +101,6 @@ Parameters:
     Description: If this is filled in, use spot instances to save that dollar
     Type: Number
     Default: -1
-  LogsRetentionInDays:
-    Description: 'Specifies the number of days you want to retain log events in the specified log group.'
-    Type: Number
-    Default: 14
-    AllowedValues: [1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653]
   MaxSize:
     Description: 'The maximum size of the Auto Scaling group.'
     Type: Number
@@ -164,10 +158,6 @@ Resources:
   Cluster:
     Type: 'AWS::ECS::Cluster'
     Properties: {}
-  LogGroup:
-    Type: 'AWS::Logs::LogGroup'
-    Properties:
-      RetentionInDays: !Ref LogsRetentionInDays
   InstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:

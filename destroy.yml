@@ -5,7 +5,42 @@
   vars_files:
   - vars.yml
   tasks:
-  - cloudformation:
+  - cloudformation_facts:
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      stack_name: static-ecs-cluster
+  - ecs_service:
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      state: present
+      cluster: "{{ cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
+      name: ssh-targets-{{ item + 1 }}
+      deployment_configuration:
+        maximum_percent: 150
+        minimum_healthy_percent: 10
+      desired_count: 0
+      task_definition: ssh-ansible-targets
+      placement_strategy:
+        - field: instanceId
+          type: spread
+    loop: '{{ range(10) | list }}'
+  - ecs_service:
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      state: present
+      cluster: "{{ cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
+      name: cisco-ios-targets-{{ item + 1}}
+      deployment_configuration:
+        maximum_percent: 150
+        minimum_healthy_percent: 10
+      desired_count: 0
+      task_definition: ios-ansible-targets
+      placement_strategy:
+        - field: instanceId
+          type: spread
+    loop: '{{ range(10) | list }}'
+  - name: Scale instances down to zero
+    cloudformation:
       template: ./cfn/ecs-static-size-cluster.yaml
       profile: '{{ aws_profile }}'
       region: us-east-2
@@ -16,31 +51,39 @@
         InstanceType: c5.4xlarge
         SpotBidPrice: 0.20
         MaxSize: 8
-        DesiredCapacity: 3
+        DesiredCapacity: 0
         MinSize: 0
         KeyName: '{{ key_name }}'
-    register: stack
   - ecs_service:
       profile: '{{ aws_profile }}'
       region: us-east-2
       state: absent
-      cluster: '{{ stack.stack_outputs.Cluster }}'
-      name: ssh-targets-{{ item }}
+      cluster: "{{ cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
+      name: ssh-targets-{{ item + 1 }}
       deployment_configuration:
         maximum_percent: 150
         minimum_healthy_percent: 10
-      desired_count: 500
+      desired_count: 0
       task_definition: ssh-ansible-targets
       placement_strategy:
         - field: instanceId
           type: spread
-    loop: [1, 2, 3, 4]
-  - ecs_ecr:
+    loop: '{{ range(10) | list }}'
+  - ecs_service:
       profile: '{{ aws_profile }}'
       region: us-east-2
       state: absent
-      name: test-images
-    register: ecr
+      cluster: "{{ cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
+      name: cisco-ios-targets-{{ item + 1}}
+      deployment_configuration:
+        maximum_percent: 150
+        minimum_healthy_percent: 10
+      desired_count: 0
+      task_definition: ios-ansible-targets
+      placement_strategy:
+        - field: instanceId
+          type: spread
+    loop: '{{ range(10) | list }}'
   - ecs_taskdefinition:
       profile: '{{ aws_profile }}'
       region: us-east-2
@@ -49,32 +92,46 @@
       state: absent
       containers:
       - name: ssh-target
-        image: '{{ ecr.repository.repositoryUri }}:6'
+        image: '{{ repo_url }}:cent-ssh'
         memoryReservation: 40
         portMappings:
           - containerPort: 22
             hostPort: 0
             protocol: tcp
-  - cloudformation:
-      template: ./cfn/ecs-static-size-cluster.yaml
+  - ecs_taskdefinition:
       profile: '{{ aws_profile }}'
       region: us-east-2
+      network_mode: bridge
+      family: ios-ansible-targets
       state: absent
-      stack_name: static-ecs-cluster
-      template_parameters:
-        ParentVPCStack: scale-test-vpc
-        SubnetsReach: Public
-        InstanceType: c5.4xlarge
-        SpotBidPrice: 0.20
-        MaxSize: 8
-        DesiredCapacity: 3
-        MinSize: 0
-        KeyName: '{{ key_name }}'
-  - cloudformation:
-      template: ./cfn/vpc-2azs.yaml
-      state: absent
-      stack_name: scale-test-vpc
-      profile: '{{ aws_profile }}'
-      region: us-east-2
-      template_parameters:
-        ClassB: 99
+      containers:
+      - name: ssh-target
+        image: '{{ repo_url }}:cisco-ios-sim'
+        memoryReservation: 40
+        portMappings:
+          - containerPort: 22
+            hostPort: 0
+            protocol: tcp
+#  - cloudformation:
+#      template: ./cfn/ecs-static-size-cluster.yaml
+#      profile: '{{ aws_profile }}'
+#      region: us-east-2
+#      state: absent
+#      stack_name: static-ecs-cluster
+#      template_parameters:
+#        ParentVPCStack: scale-test-vpc
+#        SubnetsReach: Public
+#        InstanceType: c5.4xlarge
+#        SpotBidPrice: 0.20
+#        MaxSize: 8
+#        DesiredCapacity: 3
+#        MinSize: 0
+#        KeyName: '{{ key_name }}'
+#  - cloudformation:
+#      template: ./cfn/vpc-2azs.yaml
+#      state: absent
+#      stack_name: scale-test-vpc
+#      profile: '{{ aws_profile }}'
+#      region: us-east-2
+#      template_parameters:
+#        ClassB: 99
