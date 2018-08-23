@@ -4,20 +4,20 @@
   connection: local
   vars_files:
   - vars.yml
+  module_defaults:
+    group/aws:
+      profile: '{{ aws_profile }}'
+      region: us-east-2
   tasks:
   - set_fact:
       cluster_size: '{{ ((desired_targets.cent_ssh + desired_targets.cisco_ios) / (31144 / 40)) | round(0, "ceil") | int }}'
   - cloudformation:
       template: ./cfn/vpc-2azs.yaml
       stack_name: scale-test-vpc
-      profile: '{{ aws_profile }}'
-      region: us-east-2
       template_parameters:
         ClassB: 99
   - cloudformation:
       template: ./cfn/ecs-static-size-cluster.yaml
-      profile: '{{ aws_profile }}'
-      region: us-east-2
       stack_name: static-ecs-cluster
       template_parameters:
         ParentVPCStack: scale-test-vpc
@@ -31,13 +31,9 @@
         KeyName: '{{ key_name }}'
     register: stack
   - ecs_taskdefinition_facts:
-      profile: '{{ aws_profile }}'
-      region: us-east-2
       task_definition: ssh-ansible-targets
     register: ssh_def
   - ecs_taskdefinition:
-      profile: '{{ aws_profile }}'
-      region: us-east-2
       network_mode: bridge
       family: 'ssh-ansible-targets'
       state: present
@@ -52,14 +48,10 @@
     when: >
       not ('status' in ssh_def and ssh_def.status == 'ACTIVE')
   - ecs_taskdefinition_facts:
-      profile: '{{ aws_profile }}'
-      region: us-east-2
       task_definition: ios-ansible-targets
     register: ios_def
   - debug: var=ios_def
   - ecs_taskdefinition:
-      profile: '{{ aws_profile }}'
-      region: us-east-2
       network_mode: bridge
       family: 'ios-ansible-targets'
       state: present
@@ -74,8 +66,6 @@
     when: >
       not ('status' in ios_def and ios_def.status == 'ACTIVE')
   - ecs_service:
-      profile: '{{ aws_profile }}'
-      region: us-east-2
       state: present
       cluster: '{{ stack.stack_outputs.Cluster }}'
       name: ssh-targets-{{ item + 1 }}
@@ -89,8 +79,6 @@
           type: spread
     loop: '{{ range(10) | list }}'
   - ecs_service:
-      profile: '{{ aws_profile }}'
-      region: us-east-2
       state: present
       cluster: '{{ stack.stack_outputs.Cluster }}'
       name: cisco-ios-targets-{{ item + 1 }}

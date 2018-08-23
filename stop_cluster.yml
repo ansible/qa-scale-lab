@@ -4,11 +4,13 @@
   connection: local
   vars_files:
   - vars.yml
+  module_defaults:
+    group/aws:
+      profile: '{{ aws_profile }}'
+      region: us-east-2
   tasks:
   - cloudformation:
       template: ./cfn/ecs-static-size-cluster.yaml
-      profile: '{{ aws_profile }}'
-      region: us-east-2
       stack_name: static-ecs-cluster
       template_parameters:
         ParentVPCStack: scale-test-vpc
