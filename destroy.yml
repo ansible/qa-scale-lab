@@ -112,26 +112,26 @@
           - containerPort: 22
             hostPort: 0
             protocol: tcp
-#  - cloudformation:
-#      template: ./cfn/ecs-static-size-cluster.yaml
-#      profile: '{{ aws_profile }}'
-#      region: us-east-2
-#      state: absent
-#      stack_name: static-ecs-cluster
-#      template_parameters:
-#        ParentVPCStack: scale-test-vpc
-#        SubnetsReach: Public
-#        InstanceType: c5.4xlarge
-#        SpotBidPrice: 0.20
-#        MaxSize: 8
-#        DesiredCapacity: 3
-#        MinSize: 0
-#        KeyName: '{{ key_name }}'
-#  - cloudformation:
-#      template: ./cfn/vpc-2azs.yaml
-#      state: absent
-#      stack_name: scale-test-vpc
-#      profile: '{{ aws_profile }}'
-#      region: us-east-2
-#      template_parameters:
-#        ClassB: 99
+  - cloudformation:
+      template: ./cfn/ecs-static-size-cluster.yaml
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      state: absent
+      stack_name: static-ecs-cluster
+      template_parameters:
+        ParentVPCStack: scale-test-vpc
+        SubnetsReach: Public
+        InstanceType: c5.4xlarge
+        SpotBidPrice: 0.20
+        MaxSize: 8
+        DesiredCapacity: 3
+        MinSize: 0
+        KeyName: '{{ key_name }}'
+  - cloudformation:
+      template: ./cfn/vpc-2azs.yaml
+      state: absent
+      stack_name: scale-test-vpc
+      profile: '{{ aws_profile }}'
+      region: us-east-2
+      template_parameters:
+        ClassB: 99
