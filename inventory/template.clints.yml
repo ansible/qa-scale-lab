@@ -1,0 +1,4 @@
+plugin: clints
+regions:
+  - us-east-2
+boto_profile: YOUR PROFILE HERE
