@@ -12,14 +12,18 @@ UUID as the inventory hostname.
 
 Copy `vars.template.yml` to `vars.yml` and fill in AWS profile and key.
 
+To choose how many targets are created, set the `desired_targets` parameters
+for the container types you need. By default, 2000 centos SSH containers are
+created. The number of container hosts (m5.4xlarge) is calculated based on the
+number of targets, so there's no need to change the autoscaling group
+configuration manually.
+
 ## deploy.yml
 
-Creates a 3-node cluster and 2000 containers
-
-## stop_cluster.yml
-
-Turns the ASG down to 0 instances, leaving the rest of the infrastructure
-untouched.
+Creates a host cluster and (by default) 2000 containers. To turn off the
+cluster, run `deploy.yml` again with the numbers of `desired_hosts` set to
+zero. This will delete all the containre hosts in the autoscaling group and
+scale the ECS services to zero containers.
 
 ## destroy.yml
 
