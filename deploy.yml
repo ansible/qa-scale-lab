@@ -6,14 +6,15 @@
     c5_capacity: 31144
     m5_capacity: 62952
   vars_files:
-  - vars.yml
+  - vars/defaults.yml
+  - vars/vars.yml
   module_defaults:
     group/aws:
       profile: '{{ aws_profile }}'
       region: us-east-2
   tasks:
   - set_fact:
-      cluster_size: '{{ ((desired_targets.cent_ssh + desired_targets.cisco_ios) / (m5_capacity / 40)) | round(0, "ceil") | int }}'
+      cluster_size: '{{ ((desired_targets.cent_ssh + desired_targets.cisco_ios) / (instances[instance_type].mem_capacity / 40)) | round(0, "ceil") | int }}'
   - cloudformation:
       template: ./cfn/vpc-2azs.yaml
       stack_name: scale-test-vpc
@@ -26,7 +27,7 @@
         ParentVPCStack: scale-test-vpc
         SubnetsReach: Public
         #InstanceType: c5.4xlarge
-        InstanceType: m5.4xlarge
+        InstanceType: '{{ instance_type }}'
         SpotBidPrice: 0.20
         MaxSize: 8
         # 31144 is amount of container memory capacity on a c5.4xlarge
