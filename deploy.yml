@@ -2,9 +2,6 @@
 - hosts: localhost
   gather_facts: false
   connection: local
-  vars:
-    c5_capacity: 31144
-    m5_capacity: 62952
   vars_files:
   - vars/defaults.yml
   - vars/vars.yml
