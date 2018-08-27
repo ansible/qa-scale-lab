@@ -1,0 +1,12 @@
+repo_url: 'quay.io/ryansb/ansible-scale-test'
+instances:
+  t3.large:
+    mem_capacity: 6000
+  m5.4xlarge:
+    mem_capacity: 62952
+  c5.4xlarge:
+    mem_capacity: 31144
+instance_type: m5.4xlarge
+desired_targets:
+  cent_ssh: 100
+  cisco_ios: 0
