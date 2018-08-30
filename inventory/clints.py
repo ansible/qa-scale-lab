@@ -1,5 +1,5 @@
-# Copyright (c) 2017 Ansible Project
-# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+# Copyright (c) 2018 Ansible Project
+# MIT License (see LICENSE or https;//opensource.org/licenses/MIT)
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
@@ -11,8 +11,6 @@ DOCUMENTATION = '''
     requirements:
         - boto3
         - botocore
-    extends_documentation_fragment:
-        - constructed
     description:
         - Get inventory hosts for the CLINTs created by qa-scale-lab repo
         - Uses a <name>.clints.yaml YAML configuration file.
@@ -224,6 +222,8 @@ class InventoryModule(BaseInventoryPlugin):
 
             for cluster in use_clusters:
                 cluster_name = cluster['clusterName']
+                self.inventory.add_group(cluster_name.replace('-', '_'))
+                self.inventory.add_child('all', cluster_name.replace('-', '_'))
                 all_tasks = list(ecs.get_paginator('list_tasks').paginate(cluster=cluster_name).search('taskArns[]'))
                 for i in range(0, len(all_tasks), 50):
                     running = [t for t in ecs.describe_tasks(tasks=all_tasks[i:i+50], cluster=cluster_name)['tasks'] if t['lastStatus'] == 'RUNNING']
@@ -233,6 +233,7 @@ class InventoryModule(BaseInventoryPlugin):
                             inst_dns = ec2.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]['PublicDnsName']
                             container_host_ips[task['containerInstanceArn']] = inst_dns
                         hostname = task['taskArn'].split('/')[-1].replace('-', '')
+                        self.inventory.add_group(hostname, group=cluster_name.replace('-', '_'))
                         if 'ssh-target' in task['group']:
                             self.inventory.add_host(hostname, group='clint_ssh')
                         if 'ios-target' in task['group']:

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'cloudonaut.io ECS cluster template'
+Description: 'CLINT/qa-scale-lab ECS cluster - based on cloudonaut.io template'
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -22,19 +22,10 @@ Metadata:
         default: 'Parent Stacks'
       Parameters:
       - ParentVPCStack
-      - ParentSSHBastionStack
-      - ParentAuthProxyStack
-      - ParentAlertStack
     - Label:
         default: 'EC2 Parameters'
       Parameters:
       - KeyName
-      # TODO - SystemsManagerAccess
-    - Label:
-        default: 'Load Balancer Parameters'
-      Parameters:
-      - LoadBalancerScheme
-      - LoadBalancerCertificateArn
     - Label:
         default: 'Cluster Parameters'
       Parameters:
@@ -43,14 +34,6 @@ Metadata:
       - MaxSize
       - MinSize
       - DesiredCapacity
-      - DrainingTimeoutInSeconds
-    - Label:
-        default: 'Cluster Scaling Parameters'
-      Parameters:
-      - ContainerMaxCPU
-      - ContainerMaxMemory
-      - ContainerShortageThreshold
-      - ContainerExcessThreshold
 Parameters:
   ECSAMI:
     Description: AMI ID
@@ -59,18 +42,6 @@ Parameters:
   ParentVPCStack:
     Description: 'Stack name of parent VPC stack based on vpc/vpc-*azs.yaml template.'
     Type: String
-  ParentSSHBastionStack:
-    Description: 'Optional but recommended stack name of parent SSH bastion host/instance stack based on vpc/vpc-*-bastion.yaml template.'
-    Type: String
-    Default: ''
-  ParentAuthProxyStack:
-    Description: 'Optional stack name of parent auth proxy stack based on security/auth-proxy-*.yaml template.'
-    Type: String
-    Default: ''
-  ParentAlertStack:
-    Description: 'Optional but recommended stack name of parent alert stack based on operations/alert.yaml template.'
-    Type: String
-    Default: ''
   KeyName:
     Description: 'Optional key pair of the ec2-user to establish a SSH connection to the EC2 instances of the ECS cluster.'
     Type: String
@@ -82,17 +53,6 @@ Parameters:
     AllowedValues:
     - Public
     - Private
-  LoadBalancerScheme:
-    Description: 'Indicates whether the load balancer in front of the ECS cluster is internet-facing or internal.'
-    Type: String
-    Default: 'internet-facing'
-    AllowedValues:
-    - 'internet-facing'
-    - internal
-  LoadBalancerCertificateArn:
-    Description: 'Optional Amazon Resource Name (ARN) of the certificate to associate with the load balancer.'
-    Type: String
-    Default: ''
   InstanceType:
     Description: 'The instance type of the EC2 instances of the ECS cluster.'
     Type: String
@@ -119,41 +79,9 @@ Parameters:
     Default: 2
     ConstraintDescription: 'Must be >= 1'
     MinValue: 0
-  DrainingTimeoutInSeconds:
-    Description: 'Maximum time in seconds an EC2 instance waits when terminating until all containers are moved to another EC2 instance (draining).'
-    Type: Number
-    Default: 60
-    ConstraintDescription: 'Must be in the range [60-7200]'
-    MinValue: 60
-    MaxValue: 7200
-  ContainerMaxCPU:
-    Description: 'The maximum number of cpu reservation per container that you plan to run on this cluster. A container instance has 1,024 CPU units for every CPU core.'
-    Type: Number
-    Default: 128
-  ContainerMaxMemory:
-    Description: 'The maximum number of memory reservation (in MB)  per container that you plan to run on this cluster.'
-    Type: Number
-    Default: 128
-  ContainerShortageThreshold:
-    Description: 'Scale up if free cluster capacity <= containers (based on ContainerMaxCPU and ContainerMaxMemory settings)'
-    Type: Number
-    Default: 2
-    MinValue: 0
-    ConstraintDescription: 'Must be >= 0'
-  ContainerExcessThreshold:
-    Description: 'Scale down if free cluster capacity >= containers (based on ContainerMaxCPU and ContainerMaxMemory settings)'
-    Type: Number
-    Default: 10
-    MinValue: 2
-    ConstraintDescription: 'Must be >= 2'
 Conditions:
   UseSpotInstances: !Not [!Equals [!Ref SpotBidPrice, -1]]
   HasKeyName: !Not [!Equals [!Ref KeyName, '']]
-  HasAuthProxySecurityGroup: !Not [!Equals [!Ref ParentAuthProxyStack, '']]
-  HasNotAuthProxySecurityGroup: !Equals [!Ref ParentAuthProxyStack, '']
-  HasLoadBalancerCertificateArn: !Not [!Equals [!Ref LoadBalancerCertificateArn, '']]
-  HasAuthProxySecurityGroupAndLoadBalancerCertificateArn: !And [!Condition HasAuthProxySecurityGroup, !Condition HasLoadBalancerCertificateArn]
-  HasNotAuthProxySecurityGroupAndLoadBalancerCertificateArn: !And [!Condition HasNotAuthProxySecurityGroup, !Condition HasLoadBalancerCertificateArn]
 Resources:
   Cluster:
     Type: 'AWS::ECS::Cluster'
@@ -270,7 +198,7 @@ Resources:
       MaxSize: !Ref MaxSize
       DesiredCapacity: !Ref DesiredCapacity
       HealthCheckGracePeriod: 300
-      HealthCheckType: ELB
+      HealthCheckType: EC2
       NotificationConfigurations: []
       VPCZoneIdentifier: !Split [',', {'Fn::ImportValue': !Sub '${ParentVPCStack}-Subnets${SubnetsReach}'}]
       Tags:
