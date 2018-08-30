@@ -8,5 +8,5 @@ instances:
     mem_capacity: 31144
 instance_type: m5.4xlarge
 desired_targets:
-  cent_ssh: 100
+  cent_ssh: 2000
   cisco_ios: 0

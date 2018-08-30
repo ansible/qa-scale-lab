@@ -10,8 +10,9 @@ with the task UUID as the inventory hostname.
 
 # Usage
 
-Copy `vars.template.yml` to `vars.yml` and fill in AWS profile and (optionally)
-an EC2 SSH key.
+Copy `vars.template.yml` to `vars/vars.yml` and fill in AWS profile and (optionally)
+an EC2 SSH key. The default instance type is m5.4xlarge, but c5.4xlarge and
+t3.large are also supported.
 
 To choose how many targets are created, set the `desired_targets` parameters
 for the container types you need. By default, 2000 centos SSH containers are
