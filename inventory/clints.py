@@ -236,8 +236,11 @@ class InventoryModule(BaseInventoryPlugin):
                         self.inventory.add_host(hostname, group=cluster_name.replace('-', '_'))
                         if 'ssh-target' in task['group']:
                             self.inventory.add_host(hostname, group='clint_ssh')
+                            self.inventory.set_variable(hostname, 'ansible_user', 'root')
+                            self.inventory.set_variable(hostname, 'ansible_ssh_pass', 'AnsibleFestIsBestFest')
                         if 'ios-target' in task['group']:
                             self.inventory.add_host(hostname, group='clint_ios')
+                            self.inventory.set_variable(hostname, 'ansible_user', 'cisco')
+                            self.inventory.set_variable(hostname, 'ansible_ssh_pass', 'redhat1234')
                         self.inventory.set_variable(hostname, 'ansible_host', container_host_ips[task['containerInstanceArn']])
-                        self.inventory.set_variable(hostname, 'ansible_user', 'root')
                         self.inventory.set_variable(hostname, 'ansible_ssh_port', task['containers'][0]['networkBindings'][0]['hostPort'])
