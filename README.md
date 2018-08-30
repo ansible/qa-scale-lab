@@ -53,3 +53,9 @@ case, you can run any Ansible you like across the SSH hosts like this:
 ```
 ansible clint_ssh -m ping
 ```
+
+# Licensing
+
+This repo is made available under the Apache 2.0 license. The `cfn/`
+directory also contains Apache 2.0 licensed code courtesy of
+[aws-cf-templates](https://github.com/widdix/aws-cf-templates).

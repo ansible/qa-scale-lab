@@ -1,5 +1,5 @@
 # Copyright (c) 2018 Ansible Project
-# MIT License (see LICENSE or https;//opensource.org/licenses/MIT)
+# Apache 2.0 License (see LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html)
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
