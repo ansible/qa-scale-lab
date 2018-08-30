@@ -4,13 +4,14 @@
 
 Creates an ECS cluster and an ASG of container hosts to SSH into for scale
 testing Ansible playbooks and discovering performance issues. The
-`list_clints.py` queries ECS and creates a static inventory file listing all
-the CLINTs (Container Lightweight Inventory Numerous Targets) with the task
-UUID as the inventory hostname.
+`./inventory/clints.py` inventory plugin queries ECS and creates inventory
+hosts with all the CLINTs (Container Lightweight Inventory Numerous Targets)
+with the task UUID as the inventory hostname.
 
 # Usage
 
-Copy `vars.template.yml` to `vars.yml` and fill in AWS profile and key.
+Copy `vars.template.yml` to `vars.yml` and fill in AWS profile and (optionally)
+an EC2 SSH key.
 
 To choose how many targets are created, set the `desired_targets` parameters
 for the container types you need. By default, 2000 centos SSH containers are
@@ -28,3 +29,26 @@ scale the ECS services to zero containers.
 ## destroy.yml
 
 Deletes the instances, container registry, tasks, and VPC created in deploy.yml
+
+## Custom Inventory Plugin
+
+To SSH to all the fake hosts, you will need to use the included inventory
+plugin that discovers running ECS tasks.
+
+Here's a sample config for that inventory:
+
+```
+# in ./inventory/all.clints.yml
+plugin: clints
+regions:
+  - us-east-2
+boto_profile: YourProfileHere
+```
+
+To test that the plugin is working, you can run `ansible-inventory --list` and
+there should be a long list of hosts with UUID-looking names. Once that's the
+case, you can run any Ansible you like across the SSH hosts like this:
+
+```
+ansible clint_ssh -m ping
+```

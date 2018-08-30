@@ -30,7 +30,7 @@
         # 31144 is amount of container memory capacity on a c5.4xlarge
         DesiredCapacity: '{{ cluster_size }}'
         MinSize: 0
-        KeyName: '{{ key_name }}'
+        KeyName: '{{ key_name | default("") }}'
     register: stack
   - ecs_taskdefinition_facts:
       task_definition: ssh-ansible-targets
