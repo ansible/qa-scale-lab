@@ -50,7 +50,7 @@
         MaxSize: 8
         DesiredCapacity: 0
         MinSize: 0
-        KeyName: '{{ key_name }}'
+        KeyName: '{{ key_name | default("") }}'
   - ecs_service:
       state: absent
       cluster: "{{ cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
