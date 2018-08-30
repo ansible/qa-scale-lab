@@ -3,11 +3,12 @@
   gather_facts: false
   connection: local
   vars_files:
-  - vars.yml
+  - vars/defaults.yml
+  - vars/vars.yml
   module_defaults:
     group/aws:
       profile: '{{ aws_profile }}'
-      region: us-east-2
+      region: '{{ aws_region }}'
   tasks:
   - cloudformation_facts:
       stack_name: static-ecs-cluster

@@ -7,6 +7,7 @@ instances:
   c5.4xlarge:
     mem_capacity: 31144
 instance_type: m5.4xlarge
+aws_region: us-east-2
 desired_targets:
   cent_ssh: 2000
   cisco_ios: 0
