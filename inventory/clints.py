@@ -233,7 +233,7 @@ class InventoryModule(BaseInventoryPlugin):
                             inst_dns = ec2.describe_instances(InstanceIds=[instance_id])['Reservations'][0]['Instances'][0]['PublicDnsName']
                             container_host_ips[task['containerInstanceArn']] = inst_dns
                         hostname = task['taskArn'].split('/')[-1].replace('-', '')
-                        self.inventory.add_group(hostname, group=cluster_name.replace('-', '_'))
+                        self.inventory.add_host(hostname, group=cluster_name.replace('-', '_'))
                         if 'ssh-target' in task['group']:
                             self.inventory.add_host(hostname, group='clint_ssh')
                         if 'ios-target' in task['group']:
