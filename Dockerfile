@@ -4,7 +4,6 @@ RUN yum -y update && \
     yum -y install openssh-server openssh-clients passwd curl && \
     yum clean all
 
-RUN mkdir /root/.ssh && curl -Lvso /root/.ssh/authorized_keys https://github.com/ryansb.keys && chmod 0600 /root/.ssh/*
 RUN mkdir /var/run/sshd
 
 RUN echo -e AnsibleFestIsBestFest | (passwd --stdin root)
