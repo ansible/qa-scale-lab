@@ -24,7 +24,7 @@ configuration manually.
 
 Creates a host cluster and (by default) 2000 containers. To turn off the
 cluster, run `deploy.yml` again with the numbers of `desired_hosts` set to
-zero. This will delete all the containre hosts in the autoscaling group and
+zero. This will delete all the container hosts in the autoscaling group and
 scale the ECS services to zero containers.
 
 ## destroy.yml
