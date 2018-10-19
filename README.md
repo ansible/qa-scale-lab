@@ -59,3 +59,7 @@ ansible clint_ssh -m ping
 This repo is made available under the Apache 2.0 license. The `cfn/`
 directory also contains Apache 2.0 licensed code courtesy of
 [aws-cf-templates](https://github.com/widdix/aws-cf-templates).
+
+# Lore Note
+
+The names for the Container Lightweight Inventory Numerous Targets (CLINTs) is a backronym to match Mission to Zyxx's Clone Light Infantry Nomadic Troopers. 
