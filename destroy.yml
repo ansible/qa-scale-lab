@@ -12,6 +12,55 @@
   tasks:
   - cloudformation_facts:
       stack_name: static-ecs-cluster
+  - set_fact:
+      stack_exists: "{{
+          ansible_facts.cloudformation['static-ecs-cluster'] |
+          default({'stack_outputs': {}}) |
+          json_query('stack_outputs.Cluster') |
+          ternary(true, false)
+      }}"
+  - ecs_service_info:
+      details: true
+      cluster: "{{ ansible_facts.cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
+    register: service_info
+    when: stack_exists
+  - set_fact:
+      desired_count: "{{ service_info | json_query('services[*].desiredCount') | list | max }}"
+    when: service_info is defined and service_info.services is defined
+  - set_fact:
+      scale_down: "{{ (desired_count is undefined or desired_count == 0) | ternary(false, true) }}"
+  # We can get into a chicken-egg state where the task definitions don't exist but the ECS service does
+  # To be able to scale down and then delete it, we'll need to ensure the task definition exists first
+  - ecs_taskdefinition_info:
+      task_definition: ssh-ansible-targets
+    register: ssh_targets_taskdef_exists
+  - ecs_taskdefinition_info:
+      task_definition: ios-ansible-targets
+    register: ios_targets_taskdef_exists
+  - ecs_taskdefinition:
+      network_mode: bridge
+      family: '{{ item.family }}'
+      state: present
+      containers:
+      - name: '{{ item.name }}'
+        image: '{{ item.image }}'
+        memoryReservation: 40
+        portMappings:
+          - containerPort: 22
+            hostPort: 0
+            protocol: tcp
+    when:
+      - scale_down
+      - 'not "task_definition" in item.info'
+    loop:
+      - name: ssh-target
+        image: '{{ repo_url }}:cent-ssh'
+        family: ssh-ansible-targets
+        info: '{{ ssh_targets_taskdef_exists }}'
+      - name: ios-target
+        image: '{{ repo_url }}:cisco-ios-sim'
+        family: ios-ansible-targets
+        info: '{{ ios_targets_taskdef_exists }}'
   - ecs_service:
       state: present
       cluster: "{{ cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
@@ -25,6 +74,9 @@
         - field: instanceId
           type: spread
     loop: '{{ range(10) | list }}'
+    when:
+      - scale_down
+      - stack_exists
   - ecs_service:
       state: present
       cluster: "{{ cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
@@ -38,6 +90,9 @@
         - field: instanceId
           type: spread
     loop: '{{ range(10) | list }}'
+    when:
+      - scale_down
+      - stack_exists
   - name: Scale instances down to zero
     cloudformation:
       template: ./cfn/ecs-static-size-cluster.yaml
@@ -51,6 +106,12 @@
         DesiredCapacity: 0
         MinSize: 0
         KeyName: '{{ key_name | default("") }}'
+    when: stack_exists
+    register: result
+    failed_when:
+      - 'not result is success'
+      - 'not "DELETE_FAILED state" in result.msg'
+      - 'not "ROLLBACK_COMPLETE state" in result.msg'
   - ecs_service:
       state: absent
       cluster: "{{ cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
@@ -64,6 +125,7 @@
         - field: instanceId
           type: spread
     loop: '{{ range(10) | list }}'
+    when: stack_exists
   - ecs_service:
       state: absent
       cluster: "{{ cloudformation['static-ecs-cluster'].stack_outputs.Cluster }}"
@@ -77,6 +139,7 @@
         - field: instanceId
           type: spread
     loop: '{{ range(10) | list }}'
+    when: stack_exists
   - ecs_taskdefinition_facts:
       task_definition: ssh-ansible-targets
     register: td
@@ -84,6 +147,7 @@
       arn: '{{ td.task_definition_arn }}'
       family: ssh-ansible-targets
       state: absent
+    when: td.task_definition_arn is defined
   - ecs_taskdefinition_facts:
       task_definition: ios-ansible-targets
     register: td
@@ -91,6 +155,7 @@
       arn: '{{ td.task_definition_arn }}'
       family: ios-ansible-targets
       state: absent
+    when: td.task_definition_arn is defined
   - cloudformation:
       template: ./cfn/ecs-static-size-cluster.yaml
       state: absent
