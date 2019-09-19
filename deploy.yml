@@ -26,7 +26,7 @@
         #InstanceType: c5.4xlarge
         InstanceType: '{{ instance_type }}'
         SpotBidPrice: 0.20
-        MaxSize: 8
+        MaxSize: '{{ ((cluster_size|int * 1.5)) | int }}'
         # 31144 is amount of container memory capacity on a c5.4xlarge
         DesiredCapacity: '{{ cluster_size }}'
         MinSize: 0
